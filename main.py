@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QGraphicsScene, QMainWindow
-from src.view import GraphicsView
-from src.blocks import GainBlock, IntegratorBlock, SumBlock
+from app.view import GraphicsView
+from app.blocks import GainBlock, IntegratorBlock, SumBlock
 
 class MainWindow(QMainWindow):
     def __init__(self):

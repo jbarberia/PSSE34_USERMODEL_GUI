@@ -1,7 +1,7 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QGraphicsView
-from src.core import Port, Connection
-from src.blocks import BaseBlock
+from .core import Port, Connection
+from .blocks.base import BaseBlock
 
 class GraphicsView(QGraphicsView):
     def __init__(self, scene):

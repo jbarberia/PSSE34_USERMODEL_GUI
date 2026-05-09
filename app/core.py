@@ -52,13 +52,10 @@ class Connection(QGraphicsPathItem):
         path = self.path()
         percent = 1.0
         point = path.pointAtPercent(percent)
-        angle = path.angleAtPercent(percent) # Grados en sentido antihorario desde eje X
+        angle = path.angleAtPercent(percent)
 
-        # Convertir a radianes y ajustar para el sistema de coordenadas de Qt (Y hacia abajo)
         rad = math.radians(-angle)
-
         arrow_size = 10
-        # Puntos de la cabeza de la flecha
         p1 = point + QPointF(math.cos(rad + 3.5) * arrow_size, math.sin(rad + 3.5) * arrow_size)
         p2 = point + QPointF(math.cos(rad - 3.5) * arrow_size, math.sin(rad - 3.5) * arrow_size)
 
