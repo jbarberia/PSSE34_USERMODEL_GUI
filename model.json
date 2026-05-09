@@ -1,0 +1,98 @@
+{
+    "blocks": [
+        {
+            "id": "block_1791937759712",
+            "type": "PID",
+            "x": -574.0,
+            "y": -4.0,
+            "config": {
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "kp": "1.0",
+                "ki": "1.0",
+                "kd": "1.0",
+                "td": "0.1"
+            }
+        },
+        {
+            "id": "block_1791937760432",
+            "type": "PI",
+            "x": -119.0,
+            "y": -137.0,
+            "config": {
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "kp": "1.0",
+                "ki": "1.0"
+            }
+        },
+        {
+            "id": "block_1791937761152",
+            "type": "PI",
+            "x": -306.0,
+            "y": -137.0,
+            "config": {
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "kp": "1.0",
+                "ki": "1.0"
+            }
+        },
+        {
+            "id": "block_1791937761872",
+            "type": "LEAD LAG",
+            "x": -585.0,
+            "y": -136.0,
+            "config": {
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "ki": "1.0",
+                "t1": "1.0",
+                "t2": "1.0"
+            }
+        },
+        {
+            "id": "block_1791937762592",
+            "type": "WASHOUT",
+            "x": -147.0,
+            "y": -275.0,
+            "config": {
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "ki": "1.0",
+                "ti": "1.0"
+            }
+        },
+        {
+            "id": "block_1791937763312",
+            "type": "LAG 1",
+            "x": -364.0,
+            "y": -280.0,
+            "config": {
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "ki": "1.0",
+                "ti": "1.0"
+            }
+        },
+        {
+            "id": "block_1791937764032",
+            "type": "INTEGRATOR",
+            "x": -572.0,
+            "y": -298.0,
+            "config": {
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "ti": "1.0"
+            }
+        }
+    ],
+    "connections": []
+}

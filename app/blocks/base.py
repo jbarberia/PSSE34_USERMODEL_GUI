@@ -2,7 +2,7 @@ from PyQt5.QtCore import Qt, QPointF
 from PyQt5.QtWidgets import (QGraphicsRectItem, QGraphicsTextItem, QDialog, 
                              QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
                              QLineEdit, QCheckBox)
-from PyQt5.QtGui import QPen
+from PyQt5.QtGui import QPen, QFont
 from ..core import Port
 
 class ConfigDialog(QDialog):
@@ -12,7 +12,6 @@ class ConfigDialog(QDialog):
         self.setWindowTitle(f"Configure {block.block_name}")
         layout = QVBoxLayout()
         
-        # Omitir windup si el bloque explícitamente lo pide
         self.show_windup = not getattr(block, 'disable_windup_config', False)
         
         if self.show_windup:
@@ -65,7 +64,7 @@ class BaseBlock(QGraphicsRectItem):
         self.limit_enabled = False
         self.limit_min = -1.0
         self.limit_max = 1.0
-        self.disable_windup_config = False # Flag para desactivar configuracion de windup
+        self.disable_windup_config = False
         
         self.setBrush(Qt.lightGray)
         self.setFlags(
@@ -73,7 +72,18 @@ class BaseBlock(QGraphicsRectItem):
             QGraphicsRectItem.ItemIsSelectable |
             QGraphicsRectItem.ItemSendsGeometryChanges
         )
+        
+        self.mono_font = QFont("Courier New", 10)
+        self.mono_font.setFixedPitch(True)
+        
         self.title = QGraphicsTextItem(name, self)
+        self.title.setFont(self.mono_font)
+        
+        self.subtitle = QGraphicsTextItem("", self)
+        self.subtitle_font = QFont("Courier New", 8)
+        self.subtitle.setFont(self.subtitle_font)
+        self.subtitle.setDefaultTextColor(Qt.blue)
+        
         self.input_ports = []
         self.output_port = None
         self.setPos(x, y)
@@ -92,13 +102,10 @@ class BaseBlock(QGraphicsRectItem):
             rect = self.rect()
             painter.setPen(QPen(Qt.darkGray, 1, Qt.SolidLine))
             painter.drawLine(rect.bottomLeft(), rect.topRight())
-            old_font = painter.font()
-            font = painter.font()
-            font.setPointSize(8)
-            painter.setFont(font)
-            painter.drawText(rect.adjusted(5, 2, 0, 0), Qt.AlignLeft | Qt.AlignTop, str(self.limit_max))
-            painter.drawText(rect.adjusted(0, 0, -5, -2), Qt.AlignRight | Qt.AlignBottom, str(self.limit_min))
-            painter.setFont(old_font)
+            
+            painter.setFont(self.subtitle_font)
+            # painter.drawText(rect.adjusted(5, 2, 0, 0), Qt.AlignLeft | Qt.AlignTop, str(self.limit_max))
+            # painter.drawText(rect.adjusted(0, 0, -5, -2), Qt.AlignRight | Qt.AlignBottom, str(self.limit_min))
 
     def setup_ports(self, num_inputs=1, has_output=True):
         for port in self.input_ports:
@@ -109,8 +116,8 @@ class BaseBlock(QGraphicsRectItem):
         calculated_height = max(self.height, num_inputs * 30)
         self.setRect(0, 0, self.width, calculated_height)
         
-        self.title.setPos(self.width / 2 - self.title.boundingRect().width() / 2, 
-                         calculated_height / 2 - self.title.boundingRect().height() / 2)
+        self.center_text()
+        self.update_subtitle_pos()
 
         for i in range(num_inputs):
             y_pos = (i + 1) * (calculated_height / (num_inputs + 1))
@@ -127,6 +134,26 @@ class BaseBlock(QGraphicsRectItem):
                 self.output_port.remove_all_connections()
                 if self.scene(): self.scene().removeItem(self.output_port)
                 self.output_port = None
+
+    def center_text(self):
+        rect = self.rect()
+        # Centrado horizontal y vertical
+        tw = self.title.boundingRect().width()
+        th = self.title.boundingRect().height()
+        self.title.setPos(0,0)
+        #rect.width()/2 - tw/2, rect.height()/2 - th/2)
+
+    def update_subtitle_pos(self):
+        rect = self.rect()
+        self.subtitle.setPos(0, rect.height() + 2)
+
+    def set_subtitle_text(self, text):
+        # Si hay windup, agregarlo al final del texto en una linea nueva o al lado
+        if self.limit_enabled:
+            text += f"\nLOLIM={self.limit_min}"
+            text += f"\nHILIM={self.limit_max}"            
+        self.subtitle.setPlainText(text)
+        self.update_subtitle_pos()
 
     def mouseDoubleClickEvent(self, event):
         dialog = ConfigDialog(self)
@@ -145,6 +172,9 @@ class BaseBlock(QGraphicsRectItem):
         self.limit_min = values.get('limit_min', -1.0)
         self.limit_max = values.get('limit_max', 1.0)
         self.update()
+        # Llamar a refresh_ui o similar si existe para actualizar subtitulo
+        if hasattr(self, 'refresh_ui'):
+            self.refresh_ui()
 
     def get_config(self):
         return {

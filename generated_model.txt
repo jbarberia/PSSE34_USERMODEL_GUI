@@ -1,0 +1,14 @@
+# --- AUTO-GENERATED BLOCK DIAGRAM CODE --- #
+# Total Blocks: 4
+# Total Connections: 3
+
+## Block Definitions
+CreateBlock(id='block_2368059741616', type='OUTPUT', limit_enabled=False, limit_min=-1.0, limit_max=1.0, type=VREF, id_mode=True, index=1, machine_num=1, machine_id=4, bus_num=3000)
+CreateBlock(id='block_2368059737152', type='GAIN', limit_enabled=False, limit_min=-1.0, limit_max=1.0)
+CreateBlock(id='block_2368059737728', type='INTEGRATOR', limit_enabled=True, limit_min=-1.0, limit_max=1.0, ti=1.0)
+CreateBlock(id='block_2368059738160', type='INPUT', limit_enabled=False, limit_min=-1.0, limit_max=1.0, type=CON, id_mode=False, index=1, machine_num=1, machine_id=1, bus_num=1)
+
+## Signal Connections
+Connect('block_2368059737152', port='output') -> ('block_2368059741616', port='input_0')
+Connect('block_2368059737728', port='output') -> ('block_2368059737152', port='input_0')
+Connect('block_2368059738160', port='output') -> ('block_2368059737728', port='input_0')
