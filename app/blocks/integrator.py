@@ -3,7 +3,6 @@ from .base import BaseBlock
 
 class IntegratorBlock(BaseBlock):
     def __init__(self, x, y):
-        # El integrador suele ser un bloque rectangular estandar
         super().__init__("INTEGRATOR", x, y, width=140, height=60)
         self.initial_condition = "0.0"
         self.setup_ports(1)
@@ -20,3 +19,6 @@ class IntegratorBlock(BaseBlock):
     def apply_config(self, values):
         self.initial_condition = values.get("ic", "0.0")
         print(f"Integrator IC changed to: {self.initial_condition}")
+
+    def get_config(self):
+        return {"initial_condition": self.initial_condition}

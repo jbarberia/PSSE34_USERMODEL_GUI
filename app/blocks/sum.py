@@ -3,7 +3,6 @@ from .base import BaseBlock
 
 class SumBlock(BaseBlock):
     def __init__(self, x, y):
-        # El sumador puede ser mas pequeño si tiene pocas entradas
         super().__init__("SUM", x, y, width=60, height=60)
         self.num_inputs = 2
         self.setup_ports(self.num_inputs)
@@ -22,3 +21,6 @@ class SumBlock(BaseBlock):
     def apply_config(self, values):
         self.num_inputs = values.get("num_inputs", 2)
         self.setup_ports(self.num_inputs)
+
+    def get_config(self):
+        return {"num_inputs": self.num_inputs}

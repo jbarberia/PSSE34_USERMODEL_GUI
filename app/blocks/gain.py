@@ -30,6 +30,25 @@ class GainBlock(BaseBlock):
         ])
         painter.drawPolygon(triangle)
 
+        # Dibujar indicadores de limite si estan habilitados
+        if self.limit_enabled:
+            # Linea diagonal detras del triangulo
+            painter.setPen(QPen(Qt.darkGray, 1, Qt.SolidLine))
+            painter.drawLine(rect.bottomLeft(), rect.topRight())
+            
+            # Texto de los limites
+            old_font = painter.font()
+            font = painter.font()
+            font.setPointSize(8)
+            painter.setFont(font)
+            
+            # Maximo arriba
+            painter.drawText(rect.adjusted(5, 2, 0, 0), Qt.AlignLeft | Qt.AlignTop, str(self.limit_max))
+            # Minimo abajo
+            painter.drawText(rect.adjusted(0, 0, -5, -2), Qt.AlignRight | Qt.AlignBottom, str(self.limit_min))
+            
+            painter.setFont(old_font)
+
     def create_config_fields(self, layout):
         layout.addWidget(QLabel("Gain Value:"))
         gain_edit = QLineEdit(self.gain_value)
@@ -40,9 +59,8 @@ class GainBlock(BaseBlock):
         return {"gain": fields["gain"].text()}
 
     def apply_config(self, values):
+        super().apply_config(values) # Importante para guardar limites
         self.gain_value = values.get("gain", "1.0")
         self.title.setPlainText(self.gain_value)
-        # Re-centrar el titulo ya que el texto cambio
         self.title.setPos(self.width / 2 - self.title.boundingRect().width() / 2, 
                          self.rect().height() / 2 - self.title.boundingRect().height() / 2)
-        print(f"Gain changed to: {self.gain_value}")

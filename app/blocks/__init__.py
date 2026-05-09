@@ -1,4 +1,5 @@
 from .base import BaseBlock
 from .gain import GainBlock
 from .sum import SumBlock
-from .integrator import IntegratorBlock
+from .control_blocks import (IntegratorBlock, FirstOrderLagBlock, WashoutBlock, 
+                            LeadLagBlock, PIBlock, PIDBlock)
