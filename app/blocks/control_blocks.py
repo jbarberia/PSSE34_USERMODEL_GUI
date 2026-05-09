@@ -2,16 +2,15 @@ from PyQt5.QtWidgets import QLabel, QLineEdit
 from .base import BaseBlock
 
 class IntegratorBlock(BaseBlock):
-    def __init__(self, x, y):
-        # Integrador simple, 100 es suficiente
-        super().__init__("INTEGRATOR", x, y, width=50, height=60)
+    def __init__(self, x, y, block_id=None):
+        super().__init__("INTEGRATOR", x, y, width=100, height=60, block_id=block_id)
         self.ti = "1.0"
         self.setup_ports(1)
         self.refresh_ui()
 
     def refresh_ui(self):
         self.title.setPlainText("  1\n----\n sTi")
-        self.set_subtitle_text(f"TI={self.ti}")
+        self.set_subtitle_text(f"INTEGRATOR: TI={self.ti}")
 
     def create_config_fields(self, layout):
         layout.addWidget(QLabel("TI (s):"))
@@ -19,22 +18,25 @@ class IntegratorBlock(BaseBlock):
         layout.addWidget(ti_edit)
         return {"ti": ti_edit}
 
-    def extract_config_values(self, fields):
+    def extract_block_specific_values(self, fields):
         return {"ti": fields["ti"].text()}
 
     def apply_config(self, values):
         super().apply_config(values)
-        self.ti = values.get("ti", "1.0")
+        self.ti = values.get("ti", self.ti)
         self.refresh_ui()
 
     def get_config(self):
         cfg = super().get_config()
         cfg.update({"ti": self.ti})
         return cfg
+    
+    def create_fortran_code_mode_3(self):
+        return f"VOUT_{self.block_id} = INT_MODE2({self.ti}, VINP_{self.block_id}, 1.0)"
 
 class FirstOrderLagBlock(BaseBlock):
-    def __init__(self, x, y):
-        super().__init__("LAG 1", x, y, width=80, height=60)
+    def __init__(self, x, y, block_id=None):
+        super().__init__("LAG 1", x, y, width=120, height=60, block_id=block_id)
         self.ki = "1.0"
         self.ti = "1.0"
         self.setup_ports(1)
@@ -42,7 +44,7 @@ class FirstOrderLagBlock(BaseBlock):
 
     def refresh_ui(self):
         self.title.setPlainText("   Ki\n--------\n 1 + sTi")
-        self.set_subtitle_text(f"KI={self.ki}\nTI={self.ti}")
+        self.set_subtitle_text(f"LAG 1: KI={self.ki} TI={self.ti}")
 
     def create_config_fields(self, layout):
         layout.addWidget(QLabel("KI (Gain):"))
@@ -53,13 +55,13 @@ class FirstOrderLagBlock(BaseBlock):
         layout.addWidget(ti_edit)
         return {"ki": ki_edit, "ti": ti_edit}
 
-    def extract_config_values(self, fields):
+    def extract_block_specific_values(self, fields):
         return {"ki": fields["ki"].text(), "ti": fields["ti"].text()}
 
     def apply_config(self, values):
         super().apply_config(values)
-        self.ki = values.get("ki", "1.0")
-        self.ti = values.get("ti", "1.0")
+        self.ki = values.get("ki", self.ki)
+        self.ti = values.get("ti", self.ti)
         self.refresh_ui()
 
     def get_config(self):
@@ -68,17 +70,16 @@ class FirstOrderLagBlock(BaseBlock):
         return cfg
 
 class WashoutBlock(BaseBlock):
-    def __init__(self, x, y):
-        # Washout: requiere unos 140 para la multiplicacion superior
-        super().__init__("WASHOUT", x, y, width=100, height=60)
+    def __init__(self, x, y, block_id=None):
+        super().__init__("WASHOUT", x, y, width=140, height=60, block_id=block_id)
         self.ki = "1.0"
         self.ti = "1.0"
         self.setup_ports(1)
         self.refresh_ui()
 
     def refresh_ui(self):
-        self.title.setPlainText(" KI x sTI\n----------\n 1 + sTI")
-        self.set_subtitle_text(f"KI={self.ki}\nTI={self.ti}")
+        self.title.setPlainText("  Ki * sTi\n----------\n 1 + sTi")
+        self.set_subtitle_text(f"WASHOUT: KI={self.ki} TI={self.ti}")
 
     def create_config_fields(self, layout):
         layout.addWidget(QLabel("KI (Gain):"))
@@ -89,13 +90,13 @@ class WashoutBlock(BaseBlock):
         layout.addWidget(ti_edit)
         return {"ki": ki_edit, "ti": ti_edit}
 
-    def extract_config_values(self, fields):
+    def extract_block_specific_values(self, fields):
         return {"ki": fields["ki"].text(), "ti": fields["ti"].text()}
 
     def apply_config(self, values):
         super().apply_config(values)
-        self.ki = values.get("ki", "1.0")
-        self.ti = values.get("ti", "1.0")
+        self.ki = values.get("ki", self.ki)
+        self.ti = values.get("ti", self.ti)
         self.refresh_ui()
 
     def get_config(self):
@@ -104,9 +105,8 @@ class WashoutBlock(BaseBlock):
         return cfg
 
 class LeadLagBlock(BaseBlock):
-    def __init__(self, x, y):
-        # Lead Lag: ecuacion mas larga, 180 es ideal
-        super().__init__("LEAD LAG", x, y, width=130, height=60)
+    def __init__(self, x, y, block_id=None):
+        super().__init__("LEAD LAG", x, y, width=180, height=70, block_id=block_id)
         self.ki = "1.0"
         self.t1 = "1.0"
         self.t2 = "1.0"
@@ -114,8 +114,8 @@ class LeadLagBlock(BaseBlock):
         self.refresh_ui()
 
     def refresh_ui(self):
-        self.title.setPlainText(" KI x (1 + sT1)\n--------------\n   (1 + sT2)")
-        self.set_subtitle_text(f"KI={self.ki}\nT1={self.t1}\nT2={self.t2}")
+        self.title.setPlainText(" Ki * (1 + sT1)\n--------------\n   (1 + sT2)")
+        self.set_subtitle_text(f"LEAD LAG: KI={self.ki} T1={self.t1} T2={self.t2}")
 
     def create_config_fields(self, layout):
         layout.addWidget(QLabel("KI (Gain):"))
@@ -129,14 +129,14 @@ class LeadLagBlock(BaseBlock):
         layout.addWidget(t2_edit)
         return {"ki": ki_edit, "t1": t1_edit, "t2": t2_edit}
 
-    def extract_config_values(self, fields):
+    def extract_block_specific_values(self, fields):
         return {"ki": fields["ki"].text(), "t1": fields["t1"].text(), "t2": fields["t2"].text()}
 
     def apply_config(self, values):
         super().apply_config(values)
-        self.ki = values.get("ki", "1.0")
-        self.t1 = values.get("t1", "1.0")
-        self.t2 = values.get("t2", "1.0")
+        self.ki = values.get("ki", self.ki)
+        self.t1 = values.get("t1", self.t1)
+        self.t2 = values.get("t2", self.t2)
         self.refresh_ui()
 
     def get_config(self):
@@ -145,9 +145,8 @@ class LeadLagBlock(BaseBlock):
         return cfg
 
 class PIBlock(BaseBlock):
-    def __init__(self, x, y):
-        # PI: 120 es suficiente para Kp + Ki/s
-        super().__init__("PI", x, y, width=80, height=60)
+    def __init__(self, x, y, block_id=None):
+        super().__init__("PI", x, y, width=120, height=60, block_id=block_id)
         self.kp = "1.0"
         self.ki = "1.0"
         self.setup_ports(1)
@@ -155,7 +154,7 @@ class PIBlock(BaseBlock):
 
     def refresh_ui(self):
         self.title.setPlainText("      Ki\n Kp + ----\n       s")
-        self.set_subtitle_text(f"KP={self.kp}\nKI={self.ki}")
+        self.set_subtitle_text(f"PI: KP={self.kp} KI={self.ki}")
 
     def create_config_fields(self, layout):
         layout.addWidget(QLabel("KP (Prop):"))
@@ -166,13 +165,13 @@ class PIBlock(BaseBlock):
         layout.addWidget(ki_edit)
         return {"kp": kp_edit, "ki": ki_edit}
 
-    def extract_config_values(self, fields):
+    def extract_block_specific_values(self, fields):
         return {"kp": fields["kp"].text(), "ki": fields["ki"].text()}
 
     def apply_config(self, values):
         super().apply_config(values)
-        self.kp = values.get("kp", "1.0")
-        self.ki = values.get("ki", "1.0")
+        self.kp = values.get("kp", self.kp)
+        self.ki = values.get("ki", self.ki)
         self.refresh_ui()
 
     def get_config(self):
@@ -181,9 +180,8 @@ class PIBlock(BaseBlock):
         return cfg
 
 class PIDBlock(BaseBlock):
-    def __init__(self, x, y):
-        # PID: requiere mucho espacio (240) para la ecuacion extendida de filtrado
-        super().__init__("PID", x, y, width=180, height=60)
+    def __init__(self, x, y, block_id=None):
+        super().__init__("PID", x, y, width=240, height=80, block_id=block_id)
         self.kp = "1.0"
         self.ki = "1.0"
         self.kd = "1.0"
@@ -192,10 +190,8 @@ class PIDBlock(BaseBlock):
         self.refresh_ui()
 
     def refresh_ui(self):
-        self.title.setPlainText("       Ki      sKd  \n" \
-                                " Kp + --- + --------\n" \
-                                "       s     1 + sTd")
-        self.set_subtitle_text(f"KP={self.kp}\tKI={self.ki}\nKD={self.kd}\tTD={self.td}")
+        self.title.setPlainText("           Ki      sKd\n Kp + --- + --------\n           s     1 + sTd")
+        self.set_subtitle_text(f"PID: KP={self.kp} KI={self.ki} KD={self.kd} TD={self.td}")
 
     def create_config_fields(self, layout):
         layout.addWidget(QLabel("KP:"))
@@ -212,7 +208,7 @@ class PIDBlock(BaseBlock):
         layout.addWidget(td_edit)
         return {"kp": kp_edit, "ki": ki_edit, "kd": kd_edit, "td": td_edit}
 
-    def extract_config_values(self, fields):
+    def extract_block_specific_values(self, fields):
         return {
             "kp": fields["kp"].text(),
             "ki": fields["ki"].text(),
@@ -222,10 +218,10 @@ class PIDBlock(BaseBlock):
 
     def apply_config(self, values):
         super().apply_config(values)
-        self.kp = values.get("kp", "1.0")
-        self.ki = values.get("ki", "1.0")
-        self.kd = values.get("kd", "1.0")
-        self.td = values.get("td", "0.1")
+        self.kp = values.get("kp", self.kp)
+        self.ki = values.get("ki", self.ki)
+        self.kd = values.get("kd", self.kd)
+        self.td = values.get("td", self.td)
         self.refresh_ui()
 
     def get_config(self):

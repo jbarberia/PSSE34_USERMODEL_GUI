@@ -1,13 +1,18 @@
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import QGraphicsView
 from .core import Port, Connection
 from .blocks.base import BaseBlock
 
 class GraphicsView(QGraphicsView):
+    # Definir la señal como un atributo de clase
+    selectionChangedSignal = pyqtSignal()
+
     def __init__(self, scene):
         super().__init__(scene)
         self.temp_connection = None
         self.start_port = None
+        # Conectar la señal de la escena a nuestra propia señal
+        self.scene().selectionChanged.connect(self.selectionChangedSignal.emit)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Delete:

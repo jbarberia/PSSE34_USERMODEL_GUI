@@ -5,7 +5,6 @@ class SignalBlockMixin:
     """Mixin para compartir la logica de señales entre Input y Output"""
     
     def get_signal_types(self, is_input=True):
-        # Lista completa segun INPUTS.txt
         all_types = [
             "CON", "ICON", "CHRICN", "MBASE", "ZSORCE", "XTRAN", "GENTAP",
             "STATE", "VAR", "VOLT", "CURNT", "BSFREQ", "ANGLE", "PELEC",
@@ -15,7 +14,6 @@ class SignalBlockMixin:
         return all_types
 
     def get_category(self, stype):
-        # Categorizacion segun INPUTS.txt y requerimientos del usuario
         by_bus_only = ["VOLT", "CURNT", "BSFREQ"]
         by_machine = [
             "MBASE", "ZSORCE", "XTRAN", "GENTAP", "ANGLE", "PELEC", "QELEC",
@@ -27,7 +25,7 @@ class SignalBlockMixin:
         if stype in by_bus_only:
             return "BUS_ONLY"
         elif stype in by_machine or stype in by_load:
-            return "MACHINE" # Usamos la misma logica para Load (Bus+ID) por ahora
+            return "MACHINE"
         else:
             return "INDEX_ONLY"
 
@@ -46,8 +44,8 @@ class SignalBlockMixin:
             text += f"Idx: {self.index_val}"
         
         self.title.setPlainText(text)
-        self.title.setPos(self.width / 2 - self.title.boundingRect().width() / 2, 
-                         self.rect().height() / 2 - self.title.boundingRect().height() / 2)
+        self.center_text()
+        self.update_subtitle_pos()
 
     def create_signal_fields(self, layout, is_input=True):
         layout.addWidget(QLabel("Signal Source:" if is_input else "Target Variable:"))
@@ -60,7 +58,6 @@ class SignalBlockMixin:
         id_mode_cb.setChecked(self.use_id_mode)
         layout.addWidget(id_mode_cb)
 
-        # Contenedor para Indice
         self.idx_widget = QWidget()
         idx_layout = QHBoxLayout(self.idx_widget)
         idx_layout.setContentsMargins(0, 0, 0, 0)
@@ -69,20 +66,17 @@ class SignalBlockMixin:
         idx_layout.addWidget(idx_edit)
         layout.addWidget(self.idx_widget)
 
-        # Contenedor para ID (Maquin/Bus)
         self.id_container = QWidget()
         id_layout = QVBoxLayout(self.id_container)
         id_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Fila 1: Machine/Bus Num
         row1_layout = QHBoxLayout()
-        self.id_label = QLabel("Machine Num:")
-        row1_layout.addWidget(self.id_label)
+        self.gui_id_label = QLabel("Machine Num:")
+        row1_layout.addWidget(self.gui_id_label)
         id_main_edit = QLineEdit(self.machine_num if self.get_category(self.signal_type) == "MACHINE" else self.bus_num)
         row1_layout.addWidget(id_main_edit)
         id_layout.addLayout(row1_layout)
 
-        # Fila 2: ID
         self.row2_widget = QWidget()
         row2_layout = QHBoxLayout(self.row2_widget)
         row2_layout.setContentsMargins(0, 0, 0, 0)
@@ -98,7 +92,6 @@ class SignalBlockMixin:
             cat = self.get_category(stype)
             is_id = id_mode_cb.isChecked()
             
-            # Solo permitir modo ID para categorias que no sean INDEX_ONLY
             if cat == "INDEX_ONLY":
                 id_mode_cb.setEnabled(False)
                 id_mode_cb.setChecked(False)
@@ -111,12 +104,10 @@ class SignalBlockMixin:
             
             if is_id:
                 if cat == "BUS_ONLY":
-                    self.id_label.setText("Bus Num:")
+                    self.gui_id_label.setText("Bus Num:")
                     self.row2_widget.setVisible(False)
                 elif cat == "MACHINE":
-                    self.id_label.setText("Bus Num:" if stype == "ANGLE" or stype in ["GENTAP", "STATE", "VAR"] else "Bus Num:")
-                    # En sistemas de potencia, machine index suele ser Bus + ID
-                    self.id_label.setText("Bus Num:")
+                    self.gui_id_label.setText("Bus Num:")
                     self.row2_widget.setVisible(True)
 
         id_mode_cb.toggled.connect(update_visibility)
@@ -129,8 +120,8 @@ class SignalBlockMixin:
         }
 
 class InputBlock(BaseBlock, SignalBlockMixin):
-    def __init__(self, x, y):
-        super().__init__("INPUT", x, y, width=140, height=60)
+    def __init__(self, x, y, block_id=None):
+        super().__init__("INPUT", x, y, width=140, height=60, block_id=block_id)
         self.signal_type = "CON"
         self.use_id_mode = False
         self.index_val = "1"
@@ -147,7 +138,7 @@ class InputBlock(BaseBlock, SignalBlockMixin):
     def create_config_fields(self, layout):
         return self.create_signal_fields(layout, is_input=True)
 
-    def extract_config_values(self, fields):
+    def extract_block_specific_values(self, fields):
         return {
             "type": fields["type"].currentText(),
             "id_mode": fields["id_mode"].isChecked(),
@@ -158,17 +149,17 @@ class InputBlock(BaseBlock, SignalBlockMixin):
 
     def apply_config(self, values):
         super().apply_config(values)
-        self.signal_type = values.get("type", "CON")
-        self.use_id_mode = values.get("id_mode", False)
+        self.signal_type = values.get("type", self.signal_type)
+        self.use_id_mode = values.get("id_mode", self.use_id_mode)
         cat = self.get_category(self.signal_type)
         if self.use_id_mode:
             if cat == "BUS_ONLY":
-                self.bus_num = values.get("id_main", "1")
+                self.bus_num = values.get("id_main", self.bus_num)
             elif cat == "MACHINE":
-                self.bus_num = values.get("id_main", "1")
-                self.machine_id = values.get("id_sub", "1")
+                self.bus_num = values.get("id_main", self.bus_num)
+                self.machine_id = values.get("id_sub", self.machine_id)
         else:
-            self.index_val = values.get("index", "1")
+            self.index_val = values.get("index", self.index_val)
         self.update_title()
 
     def get_config(self):
@@ -180,8 +171,8 @@ class InputBlock(BaseBlock, SignalBlockMixin):
         return cfg
 
 class OutputBlock(BaseBlock, SignalBlockMixin):
-    def __init__(self, x, y):
-        super().__init__("OUTPUT", x, y, width=140, height=60)
+    def __init__(self, x, y, block_id=None):
+        super().__init__("OUTPUT", x, y, width=140, height=60, block_id=block_id)
         self.signal_type = "VAR"
         self.use_id_mode = False
         self.index_val = "1"
@@ -198,7 +189,7 @@ class OutputBlock(BaseBlock, SignalBlockMixin):
     def create_config_fields(self, layout):
         return self.create_signal_fields(layout, is_input=False)
 
-    def extract_config_values(self, fields):
+    def extract_block_specific_values(self, fields):
         return {
             "type": fields["type"].currentText(),
             "id_mode": fields["id_mode"].isChecked(),
@@ -209,17 +200,17 @@ class OutputBlock(BaseBlock, SignalBlockMixin):
 
     def apply_config(self, values):
         super().apply_config(values)
-        self.signal_type = values.get("type", "VAR")
-        self.use_id_mode = values.get("id_mode", False)
+        self.signal_type = values.get("type", self.signal_type)
+        self.use_id_mode = values.get("id_mode", self.use_id_mode)
         cat = self.get_category(self.signal_type)
         if self.use_id_mode:
             if cat == "BUS_ONLY":
-                self.bus_num = values.get("id_main", "1")
+                self.bus_num = values.get("id_main", self.bus_num)
             elif cat == "MACHINE":
-                self.bus_num = values.get("id_main", "1")
-                self.machine_id = values.get("id_sub", "1")
+                self.bus_num = values.get("id_main", self.bus_num)
+                self.machine_id = values.get("id_sub", self.machine_id)
         else:
-            self.index_val = values.get("index", "1")
+            self.index_val = values.get("index", self.index_val)
         self.update_title()
 
     def get_config(self):
