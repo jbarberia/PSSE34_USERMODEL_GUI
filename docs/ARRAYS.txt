@@ -1,0 +1,54 @@
+CONSTANTS		
+Array	Contents	Indexed by
+CON	General constants (real)	CON number
+ICON	General constants (integer)	ICON number
+CHRICN	General constants (character)	ICON number
+MBASE	Machine base MVA	machine index
+ZSORCE	Machine impedance (complex)	machine index
+XTRAN	Step-up transformer impedance (complex)	machine index
+GENTAP	Step up transformer tap ratio	machine index
+
+STATE VARIABLES		
+Array	Contents	Indexed by
+STATE	General state variable array	STATE number
+
+ALGEBRAIC VARIABLES		
+Array	Contents	Indexed by
+VAR	General algebraic variable array	VAR number
+VOLT	Bus p.u. voltages (complex)	bus sequence number
+CURNT	Network inflow current (p.u. on SBASE)(complex)	bus sequence number
+BSFREQ	Bus p.u. frequency deviations	bus sequence number
+ANGLE	Machine relative rotor angle (degrees)	machine index
+PELEC	Machine electrical power (p.u. on SBASE)	machine index
+QELEC	Machine reactive power (p.u. on SBASE)	machine index
+ETERM	Machine terminal voltage (p.u.)	machine index
+EFD	Generator main field voltage (p.u.)	machine index
+PMECH	Turbine mechanical power (p.u. on MBASE)	machine index
+SPEED	Machine speed deviation from nominal (p.u.)	machine index
+XADIFD	Machine field current (p.u.)	machine index
+ECOMP	Voltage regulator compensated voltage (p.u.)	machine index
+VOTHSG	Stabilizer output signal (p.u.)	machine index
+VUEL	Minimum excitation limiter output signal (p.u.)	machine index
+VOEL	Maximum excitation limiter output signal (p.u.)	machine index
+ISORCE	Machine current (p.u. on SBASE) (complex)	machine index
+TPLOAD	Effective MW load (pu on SBASE)	load index
+QPLOAD	Effective Mvar load (pu on SBASE)	load index
+
+INPUT VARIABLES		
+Array	Contents	Indexed by
+VREF	Voltage regulator voltage setpoint (p.u.)	machine index
+SETVAL	DC transmission power/current setpoint (MW/Amps)	DC line number
+
+INTERNAL ARRAYS	
+Array	Contents	Indexed by
+DSTATE	General state variable time derivatives (STATE space)	STATE number
+STORE	General state variable integrator memory	STATE number
+STORMT	General memory (extended term)	2*STATE number-1 and
+BSFMEM	Memory for frequency calculation	2*STATE number
+STRTIN	Starting array indices for	bus sequence number
+NUMTRM	plant related models	array allocation
+NUMBUS	External bus number	bus sequence number
+MACHID	Machine identifier	machine index
+NUMLOD	Pointer to bus sequence number	load index
+LOADID	Load identifier	load index
+INTICN	Integer memory array	ICON number

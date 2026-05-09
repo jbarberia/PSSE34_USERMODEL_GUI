@@ -3,7 +3,8 @@ import json
 from PyQt5.QtWidgets import QApplication, QGraphicsScene, QMainWindow, QMessageBox, QFileDialog
 from app.view import GraphicsView
 from app.blocks import (GainBlock, IntegratorBlock, SumBlock, BaseBlock,
-                        FirstOrderLagBlock, WashoutBlock, LeadLagBlock, PIBlock, PIDBlock)
+                        FirstOrderLagBlock, WashoutBlock, LeadLagBlock, PIBlock, PIDBlock,
+                        InputBlock, OutputBlock)
 from app.core import Connection
 from app.codegen import generate_code
 
@@ -25,7 +26,9 @@ class MainWindow(QMainWindow):
             "WASHOUT": lambda x, y: self.add_block(WashoutBlock, x, y),
             "LEAD LAG": lambda x, y: self.add_block(LeadLagBlock, x, y),
             "PI": lambda x, y: self.add_block(PIBlock, x, y),
-            "PID": lambda x, y: self.add_block(PIDBlock, x, y)
+            "PID": lambda x, y: self.add_block(PIDBlock, x, y),
+            "INPUT": lambda x, y: self.add_block(InputBlock, x, y),
+            "OUTPUT": lambda x, y: self.add_block(OutputBlock, x, y)
         }
         
         self.init_menu()
@@ -38,15 +41,24 @@ class MainWindow(QMainWindow):
         file_menu.addAction("&Generate Code").triggered.connect(self.on_generate_code)
 
         block_menu = menubar.addMenu("&Blocks")
+        
+        # Submenú para señales
+        signal_menu = block_menu.addMenu("Signals")
+        signal_menu.addAction("Add INPUT").triggered.connect(lambda: self.add_block(InputBlock, 50, 50))
+        signal_menu.addAction("Add OUTPUT").triggered.connect(lambda: self.add_block(OutputBlock, 50, 50))
+        
+        block_menu.addSeparator()
         block_menu.addAction("Add GAIN").triggered.connect(lambda: self.add_gain(50, 50))
         block_menu.addAction("Add SUM").triggered.connect(lambda: self.add_sum(50, 50))
-        block_menu.addSeparator()
-        block_menu.addAction("Add INTEGRATOR").triggered.connect(lambda: self.add_block(IntegratorBlock, 50, 50))
-        block_menu.addAction("Add LAG 1").triggered.connect(lambda: self.add_block(FirstOrderLagBlock, 50, 50))
-        block_menu.addAction("Add WASHOUT").triggered.connect(lambda: self.add_block(WashoutBlock, 50, 50))
-        block_menu.addAction("Add LEAD LAG").triggered.connect(lambda: self.add_block(LeadLagBlock, 50, 50))
-        block_menu.addAction("Add PI").triggered.connect(lambda: self.add_block(PIBlock, 50, 50))
-        block_menu.addAction("Add PID").triggered.connect(lambda: self.add_block(PIDBlock, 50, 50))
+        
+        # Submenú para control
+        control_menu = block_menu.addMenu("Control")
+        control_menu.addAction("Add INTEGRATOR").triggered.connect(lambda: self.add_block(IntegratorBlock, 50, 50))
+        control_menu.addAction("Add LAG 1").triggered.connect(lambda: self.add_block(FirstOrderLagBlock, 50, 50))
+        control_menu.addAction("Add WASHOUT").triggered.connect(lambda: self.add_block(WashoutBlock, 50, 50))
+        control_menu.addAction("Add LEAD LAG").triggered.connect(lambda: self.add_block(LeadLagBlock, 50, 50))
+        control_menu.addAction("Add PI").triggered.connect(lambda: self.add_block(PIBlock, 50, 50))
+        control_menu.addAction("Add PID").triggered.connect(lambda: self.add_block(PIDBlock, 50, 50))
 
     def serialize_diagram(self):
         blocks_data = []
