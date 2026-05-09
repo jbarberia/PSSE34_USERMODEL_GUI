@@ -14,12 +14,16 @@ from PyQt5.QtWidgets import (
 
 
 class Port(QGraphicsEllipseItem):
-    def __init__(self, parent, x, y):
+    def __init__(self, parent, x, y, port_type):
         super().__init__(-5, -5, 10, 10, parent)
+        self.port_type = port_type  # "input" or "output"
 
-        self.setBrush(Qt.black)
+        if port_type == "input":
+            self.setBrush(Qt.green)
+        else:
+            self.setBrush(Qt.red)
+
         self.setPos(x, y)
-
         self.connections = []
 
     def center_in_scene(self):
@@ -27,23 +31,26 @@ class Port(QGraphicsEllipseItem):
 
 
 class Connection(QGraphicsPathItem):
-    def __init__(self, port1, port2):
+    def __init__(self, port1, port2=None):
         super().__init__()
-
         self.port1 = port1
         self.port2 = port2
 
+        self.setAcceptedMouseButtons(Qt.NoButton) # No interferir con clics
         pen = QPen(Qt.blue, 2)
         self.setPen(pen)
 
-        self.update_path()
+        if port1 and port2:
+            self.update_path()
+            port1.connections.append(self)
+            port2.connections.append(self)
 
-        port1.connections.append(self)
-        port2.connections.append(self)
-
-    def update_path(self):
+    def update_path(self, pos2=None):
         p1 = self.port1.center_in_scene()
-        p2 = self.port2.center_in_scene()
+        if pos2:
+            p2 = pos2
+        else:
+            p2 = self.port2.center_in_scene()
 
         path = QPainterPath()
         path.moveTo(p1)
@@ -77,11 +84,11 @@ class Block(QGraphicsRectItem):
         self.title = QGraphicsTextItem(name, self)
         self.title.setPos(35, 20)
 
-        # puerto entrada
-        self.input_port = Port(self, 0, 30)
+        # puerto entrada (verde)
+        self.input_port = Port(self, 0, 30, "input")
 
-        # puerto salida
-        self.output_port = Port(self, 120, 30)
+        # puerto salida (rojo)
+        self.output_port = Port(self, 120, 30, "output")
 
         self.setPos(x, y)
 
@@ -99,29 +106,52 @@ class Block(QGraphicsRectItem):
 class GraphicsView(QGraphicsView):
     def __init__(self, scene):
         super().__init__(scene)
-
         self.temp_connection = None
         self.start_port = None
-
-        # self.setRenderHint(self.renderHints())
 
     def mousePressEvent(self, event):
         item = self.itemAt(event.pos())
 
-        if isinstance(item, Port):
+        if isinstance(item, Port) and item.port_type == "output":
             self.start_port = item
+            self.temp_connection = Connection(self.start_port)
+            self.scene().addItem(self.temp_connection)
+            self.temp_connection.update_path(self.mapToScene(event.pos()))
+        else:
+            super().mousePressEvent(event)
 
-        super().mousePressEvent(event)
+    def mouseMoveEvent(self, event):
+        if self.temp_connection:
+            self.temp_connection.update_path(self.mapToScene(event.pos()))
+        
+        super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        item = self.itemAt(event.pos())
-
-        if isinstance(item, Port):
-            if self.start_port and item != self.start_port:
-                conn = Connection(self.start_port, item)
-                self.scene().addItem(conn)
-
-        self.start_port = None
+        if self.temp_connection:
+            # Buscar el puerto debajo del cursor ignorando la conexión temporal
+            scene_pos = self.mapToScene(event.pos())
+            items = self.scene().items(scene_pos)
+            port = None
+            for item in items:
+                if isinstance(item, Port):
+                    port = item
+                    break
+            
+            if (port and 
+                port.port_type == "input" and 
+                port.parentItem() != self.start_port.parentItem()):
+                
+                # Completar la conexión
+                self.temp_connection.port2 = port
+                port.connections.append(self.temp_connection)
+                self.start_port.connections.append(self.temp_connection)
+                self.temp_connection.update_path()
+            else:
+                # Cancelar conexión temporal
+                self.scene().removeItem(self.temp_connection)
+            
+            self.temp_connection = None
+            self.start_port = None
 
         super().mouseReleaseEvent(event)
 
