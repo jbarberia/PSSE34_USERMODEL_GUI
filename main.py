@@ -36,14 +36,37 @@ class Connection(QGraphicsPathItem):
         self.port1 = port1
         self.port2 = port2
 
-        self.setAcceptedMouseButtons(Qt.NoButton) # No interferir con clics
+        self.setFlags(
+            QGraphicsPathItem.ItemIsSelectable
+        )
+
         pen = QPen(Qt.blue, 2)
         self.setPen(pen)
 
         if port1 and port2:
             self.update_path()
+            # No los agregamos aquí si es temporal, solo si port2 existe
             port1.connections.append(self)
             port2.connections.append(self)
+
+    def paint(self, painter, option, widget):
+        if self.isSelected():
+            pen = QPen(Qt.yellow, 3, Qt.SolidLine)
+        else:
+            pen = QPen(Qt.blue, 2)
+        
+        self.setPen(pen)
+        super().paint(painter, option, widget)
+
+    def remove(self):
+        if self.port1:
+            if self in self.port1.connections:
+                self.port1.connections.remove(self)
+        if self.port2:
+            if self in self.port2.connections:
+                self.port2.connections.remove(self)
+        if self.scene():
+            self.scene().removeItem(self)
 
     def update_path(self, pos2=None):
         p1 = self.port1.center_in_scene()
@@ -108,6 +131,20 @@ class GraphicsView(QGraphicsView):
         super().__init__(scene)
         self.temp_connection = None
         self.start_port = None
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Delete:
+            for item in self.scene().selectedItems():
+                if isinstance(item, Connection):
+                    item.remove()
+                elif isinstance(item, Block):
+                    # Al borrar un bloque, borrar sus conexiones
+                    for conn in item.input_port.connections[:]:
+                        conn.remove()
+                    for conn in item.output_port.connections[:]:
+                        conn.remove()
+                    self.scene().removeItem(item)
+        super().keyPressEvent(event)
 
     def mousePressEvent(self, event):
         item = self.itemAt(event.pos())
