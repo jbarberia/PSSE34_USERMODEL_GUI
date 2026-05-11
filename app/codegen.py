@@ -42,7 +42,7 @@ class GraphResolver:
 def get_block_output_var(block_id):
     return f"V_{block_id}"
 
-def generate_fortran_block_code(block, inputs_map, all_blocks, mode, state_offset):
+def generate_fortran_block_code(block, inputs_map, all_blocks, mode, k_idx):
     b_type = block['type']
     b_id = block['id']
     cfg = block['config']
@@ -56,24 +56,37 @@ def generate_fortran_block_code(block, inputs_map, all_blocks, mode, state_offse
 
     out_var = get_block_output_var(b_id)
     code_lines = []
-    blocks_states = 0
+
+    # Helper for Mode 1: Resolve "What is the output of the block that feeds me?"
+    # In Mode 1, we often want to find the input given the output.
+    # Result of block_mode1 is usually the initialized value for its input signal.
+    first_input_id = inputs.get(0)
+    target_in_var = get_block_output_var(first_input_id) if first_input_id else None
 
     if b_type == "GAIN":
-        if mode in [1, 2, 3]:
+        if mode == 1:
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = {out_var} / {cfg.get('gain', '1.0')}")
+        elif mode in [2, 3]:
             code_lines.append(f"{out_var} = {in_vars[0]} * {cfg.get('gain', '1.0')}")
     
     elif b_type == "SUM":
-        if mode in [1, 2, 3]:
+        if mode == 1:
+            # Ambiguous for multiple inputs, assume main path is port 0
+            if target_in_var:
+                active_others = [in_vars[i] for i in sorted(inputs.keys()) if i != 0]
+                rhs_others = " + ".join(active_others) if active_others else "0.0"
+                code_lines.append(f"{target_in_var} = {out_var} - ({rhs_others})")
+        elif mode in [2, 3]:
             active_inputs = [in_vars[i] for i in sorted(inputs.keys())]
             rhs = " + ".join(active_inputs) if active_inputs else "0.0"
             code_lines.append(f"{out_var} = {rhs}")
     
     elif b_type == "INTEGRATOR":
         ti = cfg.get('ti', '1.0')
-        blocks_states = 1
-        k_idx = f"K+{state_offset}"
         if mode == 1:
-            code_lines.append(f"{out_var} = INT_MODE1({ti}, {in_vars[0]}, {k_idx})")
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = INT_MODE1({ti}, {out_var}, {k_idx})")
         elif mode == 2:
             code_lines.append(f"{out_var} = INT_MODE2({ti}, {in_vars[0]}, {k_idx})")
         elif mode == 3:
@@ -84,10 +97,9 @@ def generate_fortran_block_code(block, inputs_map, all_blocks, mode, state_offse
         ki = cfg.get('ki', '1.0')
         l_min = cfg.get('limit_min', '-999.0') if cfg.get('limit_enabled') else '-999.0'
         l_max = cfg.get('limit_max', '999.0') if cfg.get('limit_enabled') else '999.0'
-        blocks_states = 1
-        k_idx = f"K+{state_offset}"
         if mode == 1:
-            code_lines.append(f"{out_var} = NWPI_MODE1({kp}, {ki}, {l_max}, {l_min}, {in_vars[0]}, {k_idx}, IERR)")
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = NWPI_MODE1({kp}, {ki}, {l_max}, {l_min}, {out_var}, {k_idx}, IERR)")
         elif mode == 2:
             code_lines.append(f"{out_var} = NWPI_MODE2({kp}, {ki}, {l_max}, {l_min}, {in_vars[0]}, {k_idx})")
         elif mode == 3:
@@ -96,41 +108,64 @@ def generate_fortran_block_code(block, inputs_map, all_blocks, mode, state_offse
     elif b_type == "LAG 1":
         ki = cfg.get('ki', '1.0')
         ti = cfg.get('ti', '1.0')
-        blocks_states = 1
-        k_idx = f"K+{state_offset}"
         if mode == 1:
-            code_lines.append(f"{out_var} = LAG_MODE1({ki}, {ti}, {in_vars[0]}, {k_idx}, IERR)")
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = LAG_MODE1({ki}, {ti}, {out_var}, {k_idx}, IERR)")
         elif mode == 2:
             code_lines.append(f"{out_var} = LAG_MODE2({ki}, {ti}, {in_vars[0]}, {k_idx})")
         elif mode == 3:
             code_lines.append(f"{out_var} = LAG_MODE3({ki}, {ti}, {in_vars[0]}, {k_idx})")
 
     elif b_type == "INPUT":
-        if mode in [1, 2, 3]:
+        if mode == 1:
+            # Inputs in mode 1 might just be sinks of the reverse propagation
+            code_lines.append(f"! Input {b_id} initialized to {out_var}")
+        elif mode in [2, 3]:
             if cfg.get("id_mode"):
                 code_lines.append(f"{out_var} = GET_SIGNAL('{cfg.get('type')}', {cfg.get('bus_num', 0)}, '{cfg.get('machine_id', '')}')")
             else:
                 code_lines.append(f"{out_var} = {cfg.get('type', 'VAR')}({cfg.get('index', 1)})")
             
     elif b_type == "OUTPUT":
-        if mode == 3:
+        if mode == 1:
+            # Initialization starting point: fetch current value
+            if cfg.get("id_mode"):
+                 code_lines.append(f"{out_var} = GET_SIGNAL('{cfg.get('type')}', {cfg.get('bus_num', 0)}, '{cfg.get('machine_id', '')}')")
+            else:
+                 code_lines.append(f"{out_var} = {cfg.get('type', 'VAR')}({cfg.get('index', 1)})")
+            
+            # Propagate backwards to the source block
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = {out_var}")
+                
+        elif mode == 3:
             code_lines.append(f"VAR({cfg.get('index', 1)}) = {in_vars[0]}")
-        if mode in [1, 2, 3]:
+        if mode in [2, 3]:
             code_lines.append(f"{out_var} = {in_vars[0]}")
 
     if cfg.get("limit_enabled") and b_type not in ["PI"]:
-        if mode in [1, 2, 3]:
+        if mode in [2, 3]:
             l_min = cfg.get("limit_min", "-1.0")
             l_max = cfg.get("limit_max", "1.0")
             code_lines.append(f"{out_var} = MAX({l_min}, MIN({l_max}, {out_var}))")
 
-    return code_lines, blocks_states
+    return code_lines
 
 def translate_to_fortran(diagram_data):
     resolver = GraphResolver(diagram_data)
     order = resolver.get_execution_order()
     model_name = diagram_data.get("model_name", "USUARIO")
     
+    # Pre-calculate state indices
+    block_k_indices = {}
+    current_k = 0
+    for block_id in order:
+        block = resolver.blocks[block_id]
+        if block['type'] in ["INTEGRATOR", "PI", "LAG 1"]:
+            block_k_indices[block_id] = f"K+{current_k}"
+            current_k += 1
+    total_states = current_k
+
     output = []
     output.append(f"! --- AUTO-GENERATED FORTRAN SUBROUTINE: {model_name} ---")
     output.append(f"SUBROUTINE {model_name}(I, ISLOT)")
@@ -150,18 +185,16 @@ def translate_to_fortran(diagram_data):
     output.append(f"")
     output.append(f"    SELECT CASE (MODE)")
     
-    total_states = 0
-    
     for m in [1, 2, 3]:
         output.append(f"    CASE({m})")
-        current_state_offset = 0
-        for block_id in order:
+        # Mode 1 uses reverse order for initialization
+        current_order = list(reversed(order)) if m == 1 else order
+        for block_id in current_order:
             block = resolver.blocks[block_id]
-            lines, states = generate_fortran_block_code(block, resolver.inputs_map, resolver.blocks, m, current_state_offset)
+            k_idx = block_k_indices.get(block_id, "0")
+            lines = generate_fortran_block_code(block, resolver.inputs_map, resolver.blocks, m, k_idx)
             for line in lines:
                 output.append(f"        {line}")
-            current_state_offset += states
-            if m == 1: total_states = current_state_offset
 
     output.append(f"    CASE(4)")
     output.append(f"        NINTEG = MAX(NINTEG, K + {total_states - 1 if total_states > 0 else 0})")

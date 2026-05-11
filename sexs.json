@@ -1,0 +1,126 @@
+{
+    "model_name": "USUARIO",
+    "blocks": [
+        {
+            "id": "OUTPUT1",
+            "type": "OUTPUT",
+            "x": 111.0,
+            "y": -79.0,
+            "config": {
+                "block_id": "OUTPUT1",
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "type": "EFD",
+                "id_mode": true,
+                "index": "1",
+                "machine_num": "1",
+                "machine_id": "CON(J+1)",
+                "bus_num": "CON(J)"
+            }
+        },
+        {
+            "id": "LAG11",
+            "type": "LAG 1",
+            "x": -131.0,
+            "y": -84.0,
+            "config": {
+                "block_id": "LAG11",
+                "limit_enabled": false,
+                "limit_min": "-1.0",
+                "limit_max": "1.0",
+                "ki": "CON(J+2)",
+                "ti": "CON(J+3)"
+            }
+        },
+        {
+            "id": "SUM1",
+            "type": "SUM",
+            "x": -261.0,
+            "y": -88.0,
+            "config": {
+                "block_id": "SUM1",
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "num_inputs": 2
+            }
+        },
+        {
+            "id": "GAIN1",
+            "type": "GAIN",
+            "x": -399.0,
+            "y": -213.0,
+            "config": {
+                "block_id": "GAIN1",
+                "limit_enabled": false,
+                "limit_min": "-1.0",
+                "limit_max": "1.0",
+                "gain": "-1.0"
+            }
+        },
+        {
+            "id": "INPUT2",
+            "type": "INPUT",
+            "x": -634.0,
+            "y": -209.0,
+            "config": {
+                "block_id": "INPUT2",
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "type": "VREF",
+                "id_mode": true,
+                "index": "1",
+                "machine_num": "1",
+                "machine_id": "CON(J+1)",
+                "bus_num": "CON(J)"
+            }
+        },
+        {
+            "id": "INPUT1",
+            "type": "INPUT",
+            "x": -606.0,
+            "y": -78.0,
+            "config": {
+                "block_id": "INPUT1",
+                "limit_enabled": false,
+                "limit_min": -1.0,
+                "limit_max": 1.0,
+                "type": "VOLT",
+                "id_mode": true,
+                "index": "1",
+                "machine_num": "1",
+                "machine_id": "1",
+                "bus_num": "CON(J)"
+            }
+        }
+    ],
+    "connections": [
+        {
+            "from_block": "LAG11",
+            "to_block": "OUTPUT1",
+            "to_port_index": 0
+        },
+        {
+            "from_block": "SUM1",
+            "to_block": "LAG11",
+            "to_port_index": 0
+        },
+        {
+            "from_block": "INPUT1",
+            "to_block": "SUM1",
+            "to_port_index": 1
+        },
+        {
+            "from_block": "GAIN1",
+            "to_block": "SUM1",
+            "to_port_index": 0
+        },
+        {
+            "from_block": "INPUT2",
+            "to_block": "GAIN1",
+            "to_port_index": 0
+        }
+    ]
+}
