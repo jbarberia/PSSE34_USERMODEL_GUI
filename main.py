@@ -162,16 +162,40 @@ class MainWindow(QMainWindow):
     def apply_block_properties(self):
         if self.current_selected_block:
             values = self.current_selected_block.extract_config_values(self.current_prop_fields)
-            self.current_selected_block.apply_config(values)
+            new_id = values.get('block_id')
+            old_id = self.current_selected_block.block_id
+            
+            # Check for ID collision if ID is changing
+            if new_id != old_id and not self.controller.is_id_available(new_id):
+                QMessageBox.warning(self, "ID Collision", f"The ID '{new_id}' is already in use. Please choose a unique ID.")
+                return
+
+            # If ID changed, we need to update the model reference
+            if new_id != old_id:
+                self.controller.remove_block(old_id)
+                self.current_selected_block.apply_config(values)
+                self.controller.add_block(self.current_selected_block.block_name, 
+                                          self.current_selected_block.x(), 
+                                          self.current_selected_block.y(), 
+                                          block_id=new_id)
+            else:
+                self.current_selected_block.apply_config(values)
+            
             self.controller.update_block_config(self.current_selected_block.block_id, self.current_selected_block.get_config())
             self.scene.update()
 
     def add_new_block(self, b_type, x=50, y=50, block_id=None, config=None):
         if not block_id:
             count = self.block_counts.get(b_type, 0) + 1
-            self.block_counts[b_type] = count
             clean_type = b_type.replace(" ", "")
             block_id = f"{clean_type}{count}"
+            
+            # Ensure generated ID is truly unique
+            while not self.controller.is_id_available(block_id):
+                count += 1
+                block_id = f"{clean_type}{count}"
+            
+            self.block_counts[b_type] = count
 
         block_class = self.block_factory.get(b_type)
         if block_class:
@@ -186,7 +210,6 @@ class MainWindow(QMainWindow):
             if config:
                 self.controller.update_block_config(block_id, config)
             
-            # Connect position change signal if possible, or handle it in itemChange
             return block
         return None
 

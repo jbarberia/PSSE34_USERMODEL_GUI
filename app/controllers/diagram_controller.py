@@ -9,9 +9,14 @@ class DiagramController:
     def set_model_name(self, name):
         self.model.model_name = name
 
+    def is_id_available(self, block_id):
+        return block_id not in self.model.blocks
+
     def add_block(self, b_type, x, y, block_id=None):
-        # The view should probably be responsible for generating the ID if not provided,
-        # or we can do it here.
+        if block_id and not self.is_id_available(block_id):
+            # If ID is taken, we might want to throw or handle it.
+            # For now, let's assume the caller ensures uniqueness or we generate a new one.
+            pass
         block_model = self.model.add_block(block_id, b_type, x, y)
         return block_model
 
