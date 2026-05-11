@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
     QFrame,
 )
 from PyQt5.QtCore import Qt
-from app.view import GraphicsView
+from app.views.view import GraphicsView
 from app.blocks import (
     GainBlock,
     IntegratorBlock,
@@ -31,17 +31,18 @@ from app.blocks import (
     InputBlock,
     OutputBlock,
 )
-from app.core import Connection
+from app.models.core import Connection
+from app.controllers.diagram_controller import DiagramController
 from app.codegen import generate_code
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.controller = DiagramController()
         self.setWindowTitle("Control Block Editor")
         self.resize(1300, 800)
 
-        self.model_name = "USUARIO"
+        self.model_name = self.controller.model.model_name
         self.current_selected_block = None
 
         # Contador para IDs automáticos
@@ -127,6 +128,7 @@ class MainWindow(QMainWindow):
 
     def on_model_name_changed(self, text):
         self.model_name = text.strip() or "USUARIO"
+        self.controller.set_model_name(self.model_name)
 
     def on_selection_changed(self):
         try:
@@ -161,72 +163,89 @@ class MainWindow(QMainWindow):
         if self.current_selected_block:
             values = self.current_selected_block.extract_config_values(self.current_prop_fields)
             self.current_selected_block.apply_config(values)
+            self.controller.update_block_config(self.current_selected_block.block_id, self.current_selected_block.get_config())
             self.scene.update()
 
-    def add_new_block(self, b_type, x=50, y=50, block_id=None):
+    def add_new_block(self, b_type, x=50, y=50, block_id=None, config=None):
         if not block_id:
             count = self.block_counts.get(b_type, 0) + 1
             self.block_counts[b_type] = count
-            # Limpiar nombre para ID (quitar espacios)
             clean_type = b_type.replace(" ", "")
             block_id = f"{clean_type}{count}"
 
         block_class = self.block_factory.get(b_type)
         if block_class:
             block = block_class(x, y, block_id=block_id)
+            if config:
+                block.apply_config(config)
+            
             self.scene.addItem(block)
+            
+            # Sync with controller
+            self.controller.add_block(b_type, x, y, block_id=block_id)
+            if config:
+                self.controller.update_block_config(block_id, config)
+            
+            # Connect position change signal if possible, or handle it in itemChange
             return block
         return None
 
-    def serialize_diagram(self):
-        blocks_data = []
-        connections_data = []
-        block_to_id = {}
+    def on_save(self):
+        # Ensure model is up to date before saving
+        self.sync_model_from_scene()
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Diagram", "", "JSON Files (*.json)")
+        if file_path:
+            self.controller.save_to_file(file_path)
+
+    def sync_model_from_scene(self):
+        """
+        Final sync before save/codegen to ensure all positions and connections are captured.
+        """
+        self.controller.clear()
+        self.controller.set_model_name(self.model_name)
+        
         items = self.scene.items()
-        for item in items:
-            if isinstance(item, BaseBlock):
-                # Usar el ID gráfico en lugar de la memoria para persistencia
-                block_to_id[item] = item.block_id
-                blocks_data.append(
-                    {"item": item, "id": item.block_id, "type": item.block_name, "x": item.x(), "y": item.y(), "config": item.get_config()}
-                )
+        blocks = [item for item in items if isinstance(item, BaseBlock)]
+        
+        for b in blocks:
+            self.controller.add_block(b.block_name, b.x(), b.y(), block_id=b.block_id)
+            self.controller.update_block_config(b.block_id, b.get_config())
+            
         for item in items:
             if isinstance(item, Connection) and item.port1 and item.port2:
                 from_b, to_b = item.port1.parentItem(), item.port2.parentItem()
-                if from_b in block_to_id and to_b in block_to_id:
+                if isinstance(from_b, BaseBlock) and isinstance(to_b, BaseBlock):
                     port_index = to_b.input_ports.index(item.port2)
-                    connections_data.append({"from_block": block_to_id[from_b], "to_block": block_to_id[to_b], "to_port_index": port_index})
-        return {"model_name": self.model_name, "blocks": blocks_data, "connections": connections_data}
-
-    def on_save(self):
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Diagram", "", "JSON Files (*.json)")
-        if file_path:
-            with open(file_path, 'w') as f:
-                json.dump(self.serialize_diagram(), f, indent=4)
+                    self.controller.add_connection(from_b.block_id, to_b.block_id, port_index)
 
     def on_open(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Diagram", "", "JSON Files (*.json)")
         if file_path:
-            with open(file_path, 'r') as f:
-                data = json.load(f)
+            model = self.controller.load_from_file(file_path)
             self.scene.clear()
             self.block_counts = {}
-            self.model_name = data.get("model_name", "USUARIO")
+            self.model_name = model.model_name
             self.subroutine_edit.setText(self.model_name)
 
             id_to_block = {}
-            for b_data in data["blocks"]:
-                block = self.add_new_block(b_data["type"], b_data["x"], b_data["y"], block_id=b_data["id"])
+            # Rebuild blocks
+            for b_id, b_model in model.blocks.items():
+                # Correct block factory lookup using b_model.type which is b_type
+                block = self.add_new_block(b_model.type, b_model.x, b_model.y, block_id=b_model.block_id, config=b_model.config)
                 if block:
-                    block.apply_config(b_data["config"])
-                    id_to_block[b_data["id"]] = block
-            for c_data in data["connections"]:
-                from_b, to_b = id_to_block.get(c_data["from_block"]), id_to_block.get(c_data["to_block"])
+                    id_to_block[b_id] = block
+            
+            # Rebuild connections
+            for c_model in model.connections:
+                from_b = id_to_block.get(c_model.from_block)
+                to_b = id_to_block.get(c_model.to_block)
                 if from_b and to_b:
-                    self.scene.addItem(Connection(from_b.output_port, to_b.input_ports[c_data["to_port_index"]]))
+                    conn = Connection(from_b.output_port, to_b.input_ports[c_model.to_port_index])
+                    self.scene.addItem(conn)
 
     def on_generate_code(self):
-        generate_code(self.serialize_diagram())
+        self.sync_model_from_scene()
+        generate_code(self.controller.get_diagram_data())
         QMessageBox.information(self, "Success", f"Code generated as subroutine '{self.model_name}.f90'")
 
 

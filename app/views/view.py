@@ -1,7 +1,7 @@
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import QGraphicsView
-from .core import Port, Connection
-from .blocks.base import BaseBlock
+from app.models.core import Port, Connection
+from app.blocks.base import BaseBlock
 
 class GraphicsView(QGraphicsView):
     # Definir la señal como un atributo de clase

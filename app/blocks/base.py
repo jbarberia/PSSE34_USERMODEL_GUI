@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QGraphicsRectItem, QGraphicsTextItem, QDialog,
                              QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
                              QLineEdit, QCheckBox)
 from PyQt5.QtGui import QPen, QFont
-from ..core import Port
+from app.models.core import Port
 
 class ConfigDialog(QDialog):
     def __init__(self, block, parent=None):
@@ -238,8 +238,4 @@ class BaseBlock(QGraphicsRectItem):
             if self.output_port:
                 for conn in self.output_port.connections: conn.update_path()
         return super().itemChange(change, value)
-
-    def create_fortran_code_mode_3(self):
-        print(self.input_ports)
-        return f"VOUT_{self.block_id} = VINP_{self.block_id}"
 
