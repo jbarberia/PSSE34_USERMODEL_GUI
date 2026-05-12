@@ -170,6 +170,18 @@ class InputBlock(BaseBlock, SignalBlockMixin):
         })
         return cfg
 
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        code_lines = []
+        if mode == 1:
+            code_lines.append(f"! Input {cfg.get('block_id')} initialized to {out_var}")
+        elif mode in [2, 3]:
+            if cfg.get("id_mode"):
+                code_lines.append(f"{out_var} = GET_SIGNAL('{cfg.get('type')}', {cfg.get('bus_num', 0)}, '{cfg.get('machine_id', '')}')")
+            else:
+                code_lines.append(f"{out_var} = {cfg.get('type', 'VAR')}({cfg.get('index', 1)})")
+        return code_lines
+
 class OutputBlock(BaseBlock, SignalBlockMixin):
     def __init__(self, x, y, block_id=None):
         super().__init__("OUTPUT", x, y, width=140, height=60, block_id=block_id)
@@ -220,3 +232,24 @@ class OutputBlock(BaseBlock, SignalBlockMixin):
             "machine_num": self.machine_num, "machine_id": self.machine_id, "bus_num": self.bus_num
         })
         return cfg
+
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        code_lines = []
+        idx = cfg.get('index', 1)
+        if mode == 1:
+            if cfg.get("id_mode"):
+                 code_lines.append(f"{out_var} = GET_SIGNAL('{cfg.get('type')}', {cfg.get('bus_num', 0)}, '{cfg.get('machine_id', '')}')")
+            else:
+                 code_lines.append(f"{out_var} = {cfg.get('type', 'VAR')}({idx})")
+            
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = {out_var}")
+                
+        elif mode == 3:
+            code_lines.append(f"VAR({idx}) = {in_vars[0]}")
+        
+        if mode in [2, 3]:
+            code_lines.append(f"{out_var} = {in_vars[0]}")
+        return code_lines
+

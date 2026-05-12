@@ -56,3 +56,16 @@ class GainBlock(BaseBlock):
         cfg = super().get_config()
         cfg.update({"gain": self.gain_value})
         return cfg
+
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        gain = cfg.get('gain', '1.0')
+        code_lines = []
+        if mode == 1:
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = {out_var} / {gain}")
+        elif mode in [2, 3]:
+            code_lines.append(f"{out_var} = {in_vars[0]} * {gain}")
+        
+        code_lines.extend(BaseBlock.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var))
+        return code_lines

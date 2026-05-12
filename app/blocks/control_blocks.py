@@ -31,8 +31,21 @@ class IntegratorBlock(BaseBlock):
         cfg.update({"ti": self.ti})
         return cfg
     
-    def create_fortran_code_mode_3(self):
-        return f"VOUT_{self.block_id} = INT_MODE2({self.ti}, VINP_{self.block_id}, 1.0)"
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        ti = cfg.get('ti', '1.0')
+        code_lines = []
+        if mode == 1:
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = INT_MODE1({ti}, {out_var}, {k_idx})")
+        elif mode == 2:
+            code_lines.append(f"{out_var} = INT_MODE2({ti}, {in_vars[0]}, {k_idx})")
+        elif mode == 3:
+            code_lines.append(f"{out_var} = INT_MODE3({ti}, {in_vars[0]}, {k_idx})")
+        
+        # Add limit code from base
+        code_lines.extend(BaseBlock.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var))
+        return code_lines
 
 class FirstOrderLagBlock(BaseBlock):
     def __init__(self, x, y, block_id=None):
@@ -69,6 +82,22 @@ class FirstOrderLagBlock(BaseBlock):
         cfg.update({"ki": self.ki, "ti": self.ti})
         return cfg
 
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        ki = cfg.get('ki', '1.0')
+        ti = cfg.get('ti', '1.0')
+        code_lines = []
+        if mode == 1:
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = LAG_MODE1({ki}, {ti}, {out_var}, {k_idx}, IERR)")
+        elif mode == 2:
+            code_lines.append(f"{out_var} = LAG_MODE2({ki}, {ti}, {in_vars[0]}, {k_idx})")
+        elif mode == 3:
+            code_lines.append(f"{out_var} = LAG_MODE3({ki}, {ti}, {in_vars[0]}, {k_idx})")
+        
+        code_lines.extend(BaseBlock.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var))
+        return code_lines
+
 class WashoutBlock(BaseBlock):
     def __init__(self, x, y, block_id=None):
         super().__init__("WASHOUT", x, y, width=140, height=60, block_id=block_id)
@@ -103,6 +132,22 @@ class WashoutBlock(BaseBlock):
         cfg = super().get_config()
         cfg.update({"ki": self.ki, "ti": self.ti})
         return cfg
+
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        ki = cfg.get('ki', '1.0')
+        ti = cfg.get('ti', '1.0')
+        code_lines = []
+        if mode == 1:
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = WASHOUT_MODE1({ki}, {ti}, {out_var}, {k_idx}, IERR)")
+        elif mode == 2:
+            code_lines.append(f"{out_var} = WASHOUT_MODE2({ki}, {ti}, {in_vars[0]}, {k_idx})")
+        elif mode == 3:
+            code_lines.append(f"{out_var} = WASHOUT_MODE3({ki}, {ti}, {in_vars[0]}, {k_idx})")
+        
+        code_lines.extend(BaseBlock.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var))
+        return code_lines
 
 class LeadLagBlock(BaseBlock):
     def __init__(self, x, y, block_id=None):
@@ -144,6 +189,23 @@ class LeadLagBlock(BaseBlock):
         cfg.update({"ki": self.ki, "t1": self.t1, "t2": self.t2})
         return cfg
 
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        ki = cfg.get('ki', '1.0')
+        t1 = cfg.get('t1', '1.0')
+        t2 = cfg.get('t2', '1.0')
+        code_lines = []
+        if mode == 1:
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = LEADLAG_MODE1({ki}, {t1}, {t2}, {out_var}, {k_idx}, IERR)")
+        elif mode == 2:
+            code_lines.append(f"{out_var} = LEADLAG_MODE2({ki}, {t1}, {t2}, {in_vars[0]}, {k_idx})")
+        elif mode == 3:
+            code_lines.append(f"{out_var} = LEADLAG_MODE3({ki}, {t1}, {t2}, {in_vars[0]}, {k_idx})")
+        
+        code_lines.extend(BaseBlock.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var))
+        return code_lines
+
 class PIBlock(BaseBlock):
     def __init__(self, x, y, block_id=None):
         super().__init__("PI", x, y, width=120, height=60, block_id=block_id)
@@ -178,6 +240,22 @@ class PIBlock(BaseBlock):
         cfg = super().get_config()
         cfg.update({"kp": self.kp, "ki": self.ki})
         return cfg
+
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        kp = cfg.get('kp', '1.0')
+        ki = cfg.get('ki', '1.0')
+        l_min = cfg.get('limit_min', '-999.0') if cfg.get('limit_enabled') else '-999.0'
+        l_max = cfg.get('limit_max', '999.0') if cfg.get('limit_enabled') else '999.0'
+        code_lines = []
+        if mode == 1:
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = NWPI_MODE1({kp}, {ki}, {l_max}, {l_min}, {out_var}, {k_idx}, IERR)")
+        elif mode == 2:
+            code_lines.append(f"{out_var} = NWPI_MODE2({kp}, {ki}, {l_max}, {l_min}, {in_vars[0]}, {k_idx})")
+        elif mode == 3:
+            code_lines.append(f"{out_var} = NWPI_MODE3({kp}, {ki}, {l_max}, {l_min}, {in_vars[0]}, {k_idx})")
+        return code_lines
 
 class PIDBlock(BaseBlock):
     def __init__(self, x, y, block_id=None):
@@ -228,3 +306,22 @@ class PIDBlock(BaseBlock):
         cfg = super().get_config()
         cfg.update({"kp": self.kp, "ki": self.ki, "kd": self.kd, "td": self.td})
         return cfg
+
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        kp = cfg.get('kp', '1.0')
+        ki = cfg.get('ki', '1.0')
+        kd = cfg.get('kd', '1.0')
+        td = cfg.get('td', '0.1')
+        code_lines = []
+        if mode == 1:
+            if target_in_var:
+                code_lines.append(f"{target_in_var} = PID_MODE1({kp}, {ki}, {kd}, {td}, {out_var}, {k_idx}, IERR)")
+        elif mode == 2:
+            code_lines.append(f"{out_var} = PID_MODE2({kp}, {ki}, {kd}, {td}, {in_vars[0]}, {k_idx})")
+        elif mode == 3:
+            code_lines.append(f"{out_var} = PID_MODE3({kp}, {ki}, {kd}, {td}, {in_vars[0]}, {k_idx})")
+        
+        code_lines.extend(BaseBlock.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var))
+        return code_lines
+

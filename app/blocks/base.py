@@ -231,6 +231,21 @@ class BaseBlock(QGraphicsRectItem):
             "limit_max": self.limit_max
         }
 
+    @staticmethod
+    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+        """
+        Base implementation for Fortran code generation.
+        To be overridden by subclasses.
+        """
+        code_lines = []
+        # Common limit logic
+        if cfg.get("limit_enabled") and cfg.get("type") not in ["PI"]:
+            if mode in [2, 3]:
+                l_min = cfg.get("limit_min", "-1.0")
+                l_max = cfg.get("limit_max", "1.0")
+                code_lines.append(f"{out_var} = MAX({l_min}, MIN({l_max}, {out_var}))")
+        return code_lines
+
     def itemChange(self, change, value):
         if change == QGraphicsRectItem.ItemPositionHasChanged:
             for port in self.input_ports:
