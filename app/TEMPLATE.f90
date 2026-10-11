@@ -4,10 +4,10 @@ SUBROUTINE %model_name%(%parameters%)
     INTEGER %%
     REAL %%
 
-    J = %index_fn%(1, ISLOT) ! STARTING 'CON'
-    K = %index_fn%(2, ISLOT) ! STARTING 'STATE'
-    L = %index_fn%(3, ISLOT) ! STARTING 'VAR'
-    M = %index_fn%(4, ISLOT) ! STARTING 'ICON'
+    J = %index_call_1% ! STARTING 'CON'
+    K = %index_call_2% ! STARTING 'STATE'
+    L = %index_call_3% ! STARTING 'VAR'
+    M = %index_call_4% ! STARTING 'ICON'
 
     IF (MIDTRM) RETURN
 

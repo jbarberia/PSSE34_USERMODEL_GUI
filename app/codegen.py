@@ -132,17 +132,22 @@ def translate_to_fortran(diagram_data):
     mode_codes = {1: [], 2: [], 3: [], 8: []}
     
     # Track CON indices for Mode 8
+    con_counts = {
+        "GAIN": 1,
+        "INTEGRATOR": 1,
+        "PI": 2,
+        "LAG 1": 2,
+        "WASHOUT": 2,
+        "LEAD LAG": 3,
+        "PID": 4,
+    }
     con_offsets = {}
     curr_con = 0
     for block_id in order:
         block = resolver.blocks[block_id]
         b_type = block['type']
         con_offsets[block_id] = curr_con
-        if b_type == "GAIN": curr_con += 1
-        elif b_type == "INTEGRATOR": curr_con += 1
-        elif b_type in ["PI", "LAG 1", "WASHOUT"]: curr_con += 2
-        elif b_type in ["LEAD LAG", "PID"]: curr_con += 3 # Actually PID has 4 but let's be careful
-        if b_type == "PID": curr_con = con_offsets[block_id] + 4
+        curr_con += con_counts.get(b_type, 0)
 
     for m in [1, 2, 3, 8]:
         current_order = list(reversed(order)) if m == 1 else order
@@ -166,7 +171,13 @@ def translate_to_fortran(diagram_data):
     # Replacements
     result = template.replace("%model_name%", model_name)
     result = result.replace("%parameters%", type_info["args"])
-    result = result.replace("%index_fn%", type_info["index_fn"])
+    
+    # Check if index_fn takes 1 or 2 arguments
+    index_fn = type_info["index_fn"]
+    has_islot = "ISLOT" in type_info["args"]
+    for i in range(1, 5):
+        call_str = f"{index_fn}({i}, ISLOT)" if has_islot else f"{index_fn}({i})"
+        result = result.replace(f"%index_call_{i}%", call_str)
     
     # Replace %% tags sequentially (First is INTEGER, Second is REAL)
     result = result.replace("%%", integers, 1)

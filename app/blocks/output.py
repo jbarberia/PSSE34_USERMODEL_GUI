@@ -67,12 +67,14 @@ class OutputBlock(BaseBlock, SignalBlockMixin):
 
     @staticmethod
     def get_mode2_code(cfg, in_vars, out_var, k_idx):
-        return [f"{out_var} = {in_vars[0]}"]
+        in_val = in_vars.get(0, "0.0")
+        return [f"{out_var} = {in_val}"]
 
     @staticmethod
     def get_mode3_code(cfg, in_vars, out_var, k_idx):
         idx = cfg.get('index', 1)
-        return [f"VAR({idx}) = {in_vars[0]}", f"{out_var} = {in_vars[0]}"]
+        in_val = in_vars.get(0, "0.0")
+        return [f"VAR({idx}) = {in_val}", f"{out_var} = {in_val}"]
 
     @staticmethod
     def get_mode8_code(cfg, j_idx):
