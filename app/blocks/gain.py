@@ -58,14 +58,22 @@ class GainBlock(BaseBlock):
         return cfg
 
     @staticmethod
-    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+    def get_mode1_code(cfg, out_var, target_in_var, k_idx):
         gain = cfg.get('gain', '1.0')
-        code_lines = []
-        if mode == 1:
-            if target_in_var:
-                code_lines.append(f"{target_in_var} = {out_var} / {gain}")
-        elif mode in [2, 3]:
-            code_lines.append(f"{out_var} = {in_vars[0]} * {gain}")
-        
-        code_lines.extend(BaseBlock.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var))
-        return code_lines
+        if target_in_var:
+            return [f"{target_in_var} = {out_var} / {gain}"]
+        return []
+
+    @staticmethod
+    def get_mode2_code(cfg, in_vars, out_var, k_idx):
+        gain = cfg.get('gain', '1.0')
+        return [f"{out_var} = {in_vars[0]} * {gain}"] + BaseBlock.get_limits_code(cfg, out_var)
+
+    @staticmethod
+    def get_mode3_code(cfg, in_vars, out_var, k_idx):
+        gain = cfg.get('gain', '1.0')
+        return [f"{out_var} = {in_vars[0]} * {gain}"] + BaseBlock.get_limits_code(cfg, out_var)
+
+    @staticmethod
+    def get_mode8_code(cfg, j_idx):
+        return [f"CON_DSCRPT(J+{j_idx}) = '{cfg.get('block_id')} GAIN'"]

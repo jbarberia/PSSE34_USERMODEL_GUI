@@ -31,6 +31,7 @@ class ConnectionModel:
 class DiagramModel:
     def __init__(self, model_name="USUARIO"):
         self.model_name = model_name
+        self.model_type = "USRMDL"
         self.blocks = {} # ID -> BlockModel
         self.connections = []
 
@@ -57,6 +58,7 @@ class DiagramModel:
     def to_dict(self):
         return {
             "model_name": self.model_name,
+            "model_type": self.model_type,
             "blocks": [b.to_dict() for b in self.blocks.values()],
             "connections": [c.to_dict() for c in self.connections]
         }

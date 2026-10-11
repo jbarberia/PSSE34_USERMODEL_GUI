@@ -1,6 +1,11 @@
 from .base import BaseBlock
 from .gain import GainBlock
 from .sum import SumBlock
-from .control_blocks import (IntegratorBlock, FirstOrderLagBlock, WashoutBlock, 
-                            LeadLagBlock, PIBlock, PIDBlock)
-from .io_blocks import InputBlock, OutputBlock
+from .integrator import IntegratorBlock
+from .lag import FirstOrderLagBlock
+from .washout import WashoutBlock
+from .lead_lag import LeadLagBlock
+from .pi import PIBlock
+from .pid import PIDBlock
+from .input import InputBlock
+from .output import OutputBlock

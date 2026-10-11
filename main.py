@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QScrollArea,
     QFrame,
+    QComboBox,
 )
 from PyQt5.QtCore import Qt
 from app.views.view import GraphicsView
@@ -33,7 +34,7 @@ from app.blocks import (
 )
 from app.models.core import Connection
 from app.controllers.diagram_controller import DiagramController
-from app.codegen import generate_code
+from app.codegen import generate_code, MODEL_TYPES
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -43,6 +44,7 @@ class MainWindow(QMainWindow):
         self.resize(1300, 800)
 
         self.model_name = self.controller.model.model_name
+        self.model_type = self.controller.model.model_type
         self.current_selected_block = None
 
         # Contador para IDs automáticos
@@ -107,6 +109,13 @@ class MainWindow(QMainWindow):
         self.subroutine_edit = QLineEdit(self.model_name)
         self.subroutine_edit.textChanged.connect(self.on_model_name_changed)
         form.addRow("Subroutine Name:", self.subroutine_edit)
+        
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(list(MODEL_TYPES.keys()))
+        self.type_combo.setCurrentText(self.model_type)
+        self.type_combo.currentTextChanged.connect(self.on_model_type_changed)
+        form.addRow("Model Category:", self.type_combo)
+        
         global_layout.addLayout(form)
         self.main_layout.addWidget(global_group)
 
@@ -129,6 +138,10 @@ class MainWindow(QMainWindow):
     def on_model_name_changed(self, text):
         self.model_name = text.strip() or "USUARIO"
         self.controller.set_model_name(self.model_name)
+
+    def on_model_type_changed(self, text):
+        self.model_type = text
+        self.controller.set_model_type(self.model_type)
 
     def on_selection_changed(self):
         try:
@@ -226,6 +239,7 @@ class MainWindow(QMainWindow):
         """
         self.controller.clear()
         self.controller.set_model_name(self.model_name)
+        self.controller.set_model_type(self.model_type)
         
         items = self.scene.items()
         blocks = [item for item in items if isinstance(item, BaseBlock)]
@@ -248,7 +262,9 @@ class MainWindow(QMainWindow):
             self.scene.clear()
             self.block_counts = {}
             self.model_name = model.model_name
+            self.model_type = model.model_type
             self.subroutine_edit.setText(self.model_name)
+            self.type_combo.setCurrentText(self.model_type)
 
             id_to_block = {}
             # Rebuild blocks

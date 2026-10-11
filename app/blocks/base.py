@@ -1,7 +1,7 @@
 from PyQt5.QtCore import Qt, QPointF
 from PyQt5.QtWidgets import (QGraphicsRectItem, QGraphicsTextItem, QDialog, 
                              QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-                             QLineEdit, QCheckBox)
+                             QLineEdit, QCheckBox, QComboBox)
 from PyQt5.QtGui import QPen, QFont
 from app.models.core import Port
 
@@ -33,6 +33,7 @@ class BaseBlock(QGraphicsRectItem):
         # Atributos de bloque
         self.block_id = block_id if block_id else name
         self.limit_enabled = False
+        self.limit_type = "Windup" # O "Non-Windup"
         self.limit_min = -1.0
         self.limit_max = 1.0
         self.disable_windup_config = False
@@ -97,11 +98,17 @@ class BaseBlock(QGraphicsRectItem):
 
         # 2. Windup Limits (Opcional segun el bloque)
         if not self.disable_windup_config:
-            layout.addWidget(QLabel("<b>Non-Windup Limits</b>"))
+            layout.addWidget(QLabel("<b>Limits</b>"))
             limit_cb = QCheckBox("Enable Limit")
             limit_cb.setChecked(self.limit_enabled)
             layout.addWidget(limit_cb)
             fields['limit_cb'] = limit_cb
+
+            self.limit_type_combo = QComboBox()
+            self.limit_type_combo.addItems(["Windup", "Non-Windup"])
+            self.limit_type_combo.setCurrentText(self.limit_type)
+            layout.addWidget(self.limit_type_combo)
+            fields['limit_type'] = self.limit_type_combo
 
             limit_box = QHBoxLayout()
             min_edit = QLineEdit(str(self.limit_min))
@@ -137,10 +144,12 @@ class BaseBlock(QGraphicsRectItem):
         # Windup
         if 'limit_cb' in fields:
             values['limit_enabled'] = fields['limit_cb'].isChecked()
+            values['limit_type'] = fields['limit_type'].currentText()
             values['limit_min'] = fields['min_edit'].text()
             values['limit_max'] = fields['max_edit'].text()
         else:
             values['limit_enabled'] = False
+            values['limit_type'] = "Windup"
             
         # Especificos
         spec_values = self.extract_block_specific_values(fields['specific'])
@@ -215,6 +224,7 @@ class BaseBlock(QGraphicsRectItem):
         self.id_label.setPlainText(self.block_id)
         
         self.limit_enabled = values.get('limit_enabled', False)
+        self.limit_type = values.get('limit_type', self.limit_type)
         self.limit_min = values.get('limit_min', self.limit_min)
         self.limit_max = values.get('limit_max', self.limit_max)
         self.update()
@@ -227,23 +237,34 @@ class BaseBlock(QGraphicsRectItem):
         return {
             "block_id": self.block_id,
             "limit_enabled": self.limit_enabled,
+            "limit_type": self.limit_type,
             "limit_min": self.limit_min,
             "limit_max": self.limit_max
         }
 
     @staticmethod
-    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
-        """
-        Base implementation for Fortran code generation.
-        To be overridden by subclasses.
-        """
+    def get_mode1_code(cfg, out_var, target_in_var, k_idx):
+        return []
+
+    @staticmethod
+    def get_mode2_code(cfg, in_vars, out_var, k_idx):
+        return []
+
+    @staticmethod
+    def get_mode3_code(cfg, in_vars, out_var, k_idx):
+        return []
+
+    @staticmethod
+    def get_mode8_code(cfg, j_idx):
+        return []
+
+    @staticmethod
+    def get_limits_code(cfg, out_var):
         code_lines = []
-        # Common limit logic
-        if cfg.get("limit_enabled") and cfg.get("type") not in ["PI"]:
-            if mode in [2, 3]:
-                l_min = cfg.get("limit_min", "-1.0")
-                l_max = cfg.get("limit_max", "1.0")
-                code_lines.append(f"{out_var} = MAX({l_min}, MIN({l_max}, {out_var}))")
+        if cfg.get("limit_enabled") and cfg.get("limit_type") == "Windup" and cfg.get("type") not in ["PI"]:
+            l_min = cfg.get("limit_min", "-1.0")
+            l_max = cfg.get("limit_max", "1.0")
+            code_lines.append(f"{out_var} = MAX({l_min}, MIN({l_max}, {out_var}))")
         return code_lines
 
     def itemChange(self, change, value):

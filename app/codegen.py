@@ -1,8 +1,8 @@
 import json
-from app.blocks.gain import GainBlock
-from app.blocks.sum import SumBlock
-from app.blocks.control_blocks import IntegratorBlock, FirstOrderLagBlock, WashoutBlock, LeadLagBlock, PIBlock, PIDBlock
-from app.blocks.io_blocks import InputBlock, OutputBlock
+from app.blocks import (
+    GainBlock, SumBlock, IntegratorBlock, FirstOrderLagBlock, 
+    WashoutBlock, LeadLagBlock, PIBlock, PIDBlock, InputBlock, OutputBlock
+)
 
 BLOCK_CLASSES = {
     "GAIN": GainBlock,
@@ -59,10 +59,26 @@ class GraphResolver:
 def get_block_output_var(block_id):
     return f"V_{block_id}"
 
-def generate_fortran_block_code(block, inputs_map, all_blocks, mode, k_idx):
+MODEL_TYPES = {
+    "USRMDL": {"args": "MC, ISLOT", "index_fn": "STRTIN"},
+    "USRLOD": {"args": "I, ISLOT", "index_fn": "LODIN"},
+    "USRLODC": {"args": "I, ISLOT", "index_fn": "LODIN"},
+    "USRREL": {"args": "I, ISLOT", "index_fn": "RELIN"},
+    "USRAUX": {"args": "I, ISLOT", "index_fn": "AUXIN"},
+    "USRFCT": {"args": "I, ISLOT", "index_fn": "FCTIN"},
+    "USRDCL": {"args": "I, ISLOT", "index_fn": "DCLIN"},
+    "USRSWS": {"args": "I, ISLOT", "index_fn": "SWSIN"},
+    "USRSWS2": {"args": "I, ISLOT", "index_fn": "SWSIN"},
+    "USRBRN": {"args": "I, ISLOT", "index_fn": "BRNIN"},
+    "USR2WT": {"args": "I, ISLOT", "index_fn": "TR2IN"},
+    "USR3WT": {"args": "I, ISLOT", "index_fn": "TR3IN"},
+    "USRBUS": {"args": "I", "index_fn": "BUSIN"}
+}
+
+def generate_fortran_block_code(block, inputs_map, all_blocks, mode, k_idx, con_idx=0):
     b_type = block['type']
     b_id = block['id']
-    cfg = dict(block['config']) # Copy to avoid mutating original
+    cfg = dict(block['config'])
     cfg['type'] = b_type
     cfg['block_id'] = b_id
     
@@ -74,16 +90,23 @@ def generate_fortran_block_code(block, inputs_map, all_blocks, mode, k_idx):
         in_vars[i] = get_block_output_var(from_id) if from_id else "0.0"
 
     out_var = get_block_output_var(b_id)
-
-    # Helper for Mode 1: Resolve "What is the output of the block that feeds me?"
     first_input_id = inputs.get(0)
     target_in_var = get_block_output_var(first_input_id) if first_input_id else None
 
     cls = BLOCK_CLASSES.get(b_type)
-    if cls:
-        return cls.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var)
+    if not cls:
+        return [f"! Unknown block type: {b_type}"]
+
+    if mode == 1:
+        return cls.get_mode1_code(cfg, out_var, target_in_var, k_idx)
+    elif mode == 2:
+        return cls.get_mode2_code(cfg, in_vars, out_var, k_idx)
+    elif mode == 3:
+        return cls.get_mode3_code(cfg, in_vars, out_var, k_idx)
+    elif mode == 8:
+        return cls.get_mode8_code(cfg, con_idx)
     
-    return [f"! Unknown block type: {b_type}"]
+    return []
 
 import os
 
@@ -91,6 +114,8 @@ def translate_to_fortran(diagram_data):
     resolver = GraphResolver(diagram_data)
     order = resolver.get_execution_order()
     model_name = diagram_data.get("model_name", "USUARIO")
+    model_type = diagram_data.get("model_type", "USRMDL")
+    type_info = MODEL_TYPES.get(model_type, MODEL_TYPES["USRMDL"])
     
     # Pre-calculate state indices
     block_k_indices = {}
@@ -106,37 +131,31 @@ def translate_to_fortran(diagram_data):
     # Generate mode-specific code
     mode_codes = {1: [], 2: [], 3: [], 8: []}
     
-    for m in [1, 2, 3]:
+    # Track CON indices for Mode 8
+    con_offsets = {}
+    curr_con = 0
+    for block_id in order:
+        block = resolver.blocks[block_id]
+        b_type = block['type']
+        con_offsets[block_id] = curr_con
+        if b_type == "GAIN": curr_con += 1
+        elif b_type == "INTEGRATOR": curr_con += 1
+        elif b_type in ["PI", "LAG 1", "WASHOUT"]: curr_con += 2
+        elif b_type in ["LEAD LAG", "PID"]: curr_con += 3 # Actually PID has 4 but let's be careful
+        if b_type == "PID": curr_con = con_offsets[block_id] + 4
+
+    for m in [1, 2, 3, 8]:
         current_order = list(reversed(order)) if m == 1 else order
         for block_id in current_order:
             block = resolver.blocks[block_id]
             k_idx = block_k_indices.get(block_id, "0")
-            lines = generate_fortran_block_code(block, resolver.inputs_map, resolver.blocks, m, k_idx)
+            c_idx = con_offsets.get(block_id, 0)
+            lines = generate_fortran_block_code(block, resolver.inputs_map, resolver.blocks, m, k_idx, con_idx=c_idx)
             mode_codes[m].extend(lines)
-
-    # Mode 8: Parameter descriptions
-    con_idx = 0
-    for block_id in order:
-        block = resolver.blocks[block_id]
-        b_type = block['type']
-        if b_type == "GAIN":
-            mode_codes[8].append(f"CON_DSCRPT(J+{con_idx}) = '{block_id} GAIN'")
-            con_idx += 1
-        elif b_type == "INTEGRATOR":
-            mode_codes[8].append(f"CON_DSCRPT(J+{con_idx}) = '{block_id} TI'")
-            con_idx += 1
-        elif b_type == "PI":
-            mode_codes[8].append(f"CON_DSCRPT(J+{con_idx}) = '{block_id} KP'")
-            mode_codes[8].append(f"CON_DSCRPT(J+{con_idx+1}) = '{block_id} KI'")
-            con_idx += 2
-        elif b_type == "LAG 1":
-            mode_codes[8].append(f"CON_DSCRPT(J+{con_idx}) = '{block_id} KI'")
-            mode_codes[8].append(f"CON_DSCRPT(J+{con_idx+1}) = '{block_id} TI'")
-            con_idx += 2
 
     # Prepare variable lists
     all_vars = [get_block_output_var(b_id) for b_id in order]
-    integers = "I, ISLOT, J, K, L, M, IERR"
+    integers = "I, ISLOT, J, K, L, M, IERR" if "ISLOT" in type_info["args"] else "I, J, K, L, M, IERR"
     reals = ", ".join(all_vars) if all_vars else ""
 
     # Load Template
@@ -146,8 +165,8 @@ def translate_to_fortran(diagram_data):
 
     # Replacements
     result = template.replace("%model_name%", model_name)
-    result = result.replace("%parameters%", "I, ISLOT")
-    result = result.replace("%index_fn%", "STRTIN")
+    result = result.replace("%parameters%", type_info["args"])
+    result = result.replace("%index_fn%", type_info["index_fn"])
     
     # Replace %% tags sequentially (First is INTEGER, Second is REAL)
     result = result.replace("%%", integers, 1)
@@ -165,6 +184,7 @@ def translate_to_fortran(diagram_data):
         f.write(result)
         
     return result
+
 
 
 def generate_code(diagram_data):

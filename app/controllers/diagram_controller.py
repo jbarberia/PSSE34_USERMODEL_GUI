@@ -9,6 +9,9 @@ class DiagramController:
     def set_model_name(self, name):
         self.model.model_name = name
 
+    def set_model_type(self, m_type):
+        self.model.model_type = m_type
+
     def is_id_available(self, block_id):
         return block_id not in self.model.blocks
 
@@ -51,6 +54,7 @@ class DiagramController:
         
         self.clear()
         self.model.model_name = data.get("model_name", "USUARIO")
+        self.model.model_type = data.get("model_type", "USRMDL")
         
         for b_data in data["blocks"]:
             self.model.add_block(b_data["id"], b_data["type"], b_data["x"], b_data["y"], b_data["config"])

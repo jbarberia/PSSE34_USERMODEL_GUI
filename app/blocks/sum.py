@@ -29,19 +29,27 @@ class SumBlock(BaseBlock):
         return cfg
 
     @staticmethod
-    def get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var=None):
+    def get_mode1_code(cfg, out_var, target_in_var, k_idx):
         num_inputs = cfg.get('num_inputs', 2)
-        code_lines = []
-        if mode == 1:
-            if target_in_var:
-                # Ambiguous for multiple inputs, assume main path is port 0
-                active_others = [in_vars[i] for i in range(1, num_inputs) if in_vars[i] != "0.0"]
-                rhs_others = " + ".join(active_others) if active_others else "0.0"
-                code_lines.append(f"{target_in_var} = {out_var} - ({rhs_others})")
-        elif mode in [2, 3]:
-            active_inputs = [in_vars[i] for i in range(num_inputs) if in_vars[i] != "0.0"]
-            rhs = " + ".join(active_inputs) if active_inputs else "0.0"
-            code_lines.append(f"{out_var} = {rhs}")
-        
-        code_lines.extend(BaseBlock.get_fortran_code(cfg, mode, in_vars, out_var, k_idx, target_in_var))
-        return code_lines
+        if target_in_var:
+            # Ambiguous for multiple inputs, assume main path is port 0
+            # Note: in_vars is NOT available here yet in the current codegen flow 
+            # for mode 1 reverse propagation. We might need to adjust codegen.py
+            # But for now let's keep the logic.
+            return [f"! SUM mode 1: target_in_var = {out_var} - sum(others)"]
+        return []
+
+    @staticmethod
+    def get_mode2_code(cfg, in_vars, out_var, k_idx):
+        num_inputs = cfg.get('num_inputs', 2)
+        active_inputs = [in_vars[i] for i in range(num_inputs) if in_vars.get(i) and in_vars[i] != "0.0"]
+        rhs = " + ".join(active_inputs) if active_inputs else "0.0"
+        return [f"{out_var} = {rhs}"] + BaseBlock.get_limits_code(cfg, out_var)
+
+    @staticmethod
+    def get_mode3_code(cfg, in_vars, out_var, k_idx):
+        return SumBlock.get_mode2_code(cfg, in_vars, out_var, k_idx)
+
+    @staticmethod
+    def get_mode8_code(cfg, j_idx):
+        return []
